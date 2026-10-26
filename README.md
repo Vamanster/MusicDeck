@@ -26,7 +26,10 @@ js/app.js               Entry point: UI wiring, install prompt, SW registration 
 js/db.js                IndexedDB storage for tracks (audio blobs) and playlists
 js/player.js            Playback: queue, prev/next, loop (off/all/one), Media Session controls
 icons/                  App icons (any + maskable) and favicon
+icons/ui/               Interface icons (Tabler SVGs), drawn via CSS masks so they follow the theme colour
 ```
+
+To add an interface icon: drop the SVG in `icons/ui/`, add a `.i-<name>` rule in `css/styles.css`, list it in `APP_SHELL` in `sw.js`, and use `<span class="icon i-<name>"></span>`.
 
 ## Updating the app
 
@@ -42,8 +45,12 @@ When you change any file listed in `APP_SHELL` inside `sw.js`, bump `CACHE_VERSI
 
 - Add audio by file picker, drag-and-drop, or "Open with" (Chromium desktop, when installed)
 - Library persisted in IndexedDB, with persistent-storage request
-- Play / pause, previous / next, seek, loop off / all / one
+- Play / pause, previous / next, seek
+- Context-aware mode button: loop off / all / one when playing All music; in order / shuffle when playing a playlist (playlists stop after the last track)
+- Playing playlist is highlighted with a pause button on the Playlists page; the player shows where the track is playing from
+- All music / Playlists tabs above the player
+- Playlists: create, rename, delete, add tracks (from a track's playlist button or "Add tracks" in a playlist), remove tracks, play
 - Lock-screen and media-key controls via the Media Session API
 - Works offline after first load
 
-Planned: playlists UI, shuffle, metadata (ID3 tags/artwork), search.
+Planned: shuffle, reordering playlist tracks, metadata (ID3 tags/artwork), search.

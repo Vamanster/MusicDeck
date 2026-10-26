@@ -36,25 +36,112 @@
   </header>
 
   <main class="content">
-    <section aria-labelledby="library-heading">
-      <h2 id="library-heading" class="section-title">Library</h2>
-      <p id="empty-state" class="empty">No tracks yet. Add some audio files to get started — they're stored only on this device.</p>
+    <!-- All music -->
+    <section id="view-library" class="view" aria-labelledby="library-heading">
+      <h2 id="library-heading" class="section-title">All music</h2>
+      <p id="library-empty" class="empty">No tracks yet. Add some audio files to get started — they're stored only on this device.</p>
       <ul id="track-list" class="track-list"></ul>
+    </section>
+
+    <!-- Playlists list -->
+    <section id="view-playlists" class="view" aria-labelledby="playlists-heading" hidden>
+      <div class="view-header">
+        <h2 id="playlists-heading" class="section-title">Playlists</h2>
+        <button id="new-playlist-btn" class="btn btn-ghost">New playlist</button>
+      </div>
+      <p id="playlists-empty" class="empty">No playlists yet. Create one, then add tracks from All music.</p>
+      <ul id="playlist-list" class="track-list"></ul>
+    </section>
+
+    <!-- Single playlist -->
+    <section id="view-playlist" class="view" aria-labelledby="pl-name" hidden>
+      <button id="back-btn" class="btn btn-ghost btn-back">‹ Playlists</button>
+      <h2 id="pl-name" class="playlist-title"></h2>
+      <p id="pl-meta" class="muted"></p>
+      <div class="pl-actions">
+        <button id="pl-play" class="btn btn-primary"><span class="icon i-player-play" aria-hidden="true"></span>Play</button>
+        <button id="pl-add" class="btn btn-ghost">Add tracks</button>
+        <button id="pl-rename" class="btn btn-ghost">Rename</button>
+        <button id="pl-delete" class="btn btn-ghost btn-danger">Delete</button>
+      </div>
+      <p id="pl-empty" class="empty">This playlist is empty. Tap “Add tracks” to choose from your music.</p>
+      <ul id="pl-tracks" class="track-list"></ul>
     </section>
   </main>
 
   <footer class="player" aria-label="Player">
-    <div class="now-playing">
-      <span id="np-title" class="np-title">Nothing playing</span>
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" data-view="library" aria-current="page">
+        <span class="icon i-music" aria-hidden="true"></span>All music
+      </button>
+      <button class="tab" data-view="playlists">
+        <span class="icon i-playlist" aria-hidden="true"></span>Playlists
+      </button>
+    </nav>
+    <div class="player-main">
+      <div class="now-playing">
+        <span id="np-title" class="np-title">Nothing playing</span>
+        <span id="np-source" class="np-source" hidden></span>
+      </div>
+      <div class="controls">
+        <button id="prev-btn" class="icon-btn" aria-label="Previous"><span class="icon i-player-track-prev"></span></button>
+        <button id="play-btn" class="icon-btn icon-btn-lg" aria-label="Play"><span class="icon i-player-play"></span></button>
+        <button id="next-btn" class="icon-btn" aria-label="Next"><span class="icon i-player-track-next"></span></button>
+        <!-- Loop (All music) or play order (playlists); app.js swaps the icon -->
+        <button id="mode-btn" class="icon-btn" aria-label="Loop: off"><span class="icon i-repeat-off"></span></button>
+      </div>
+      <input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek">
     </div>
-    <div class="controls">
-      <button id="prev-btn" class="icon-btn" aria-label="Previous">⏮</button>
-      <button id="play-btn" class="icon-btn icon-btn-lg" aria-label="Play">▶</button>
-      <button id="next-btn" class="icon-btn" aria-label="Next">⏭</button>
-      <button id="loop-btn" class="icon-btn" aria-label="Loop" aria-pressed="false">🔁</button>
-    </div>
-    <input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek">
   </footer>
+
+  <!-- Dialogs -->
+  <dialog id="name-dialog" class="sheet">
+    <form method="dialog">
+      <h3 id="name-dialog-title">New playlist</h3>
+      <input id="name-input" type="text" maxlength="80" placeholder="Playlist name" autocomplete="off" required>
+      <div class="sheet-actions">
+        <button type="button" data-close class="btn btn-ghost">Cancel</button>
+        <button value="ok" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="pick-playlist-dialog" class="sheet">
+    <form method="dialog">
+      <h3>Add to playlist</h3>
+      <p id="pick-playlist-track" class="muted"></p>
+      <ul id="pick-playlist-list" class="pick-list"></ul>
+      <div class="sheet-actions">
+        <button type="button" data-close class="btn btn-ghost">Cancel</button>
+        <button value="new" class="btn btn-primary">New playlist…</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="pick-tracks-dialog" class="sheet">
+    <form method="dialog">
+      <h3>Add tracks</h3>
+      <p id="pick-tracks-empty" class="muted" hidden>Every track is already in this playlist.</p>
+      <ul id="pick-tracks-list" class="pick-list"></ul>
+      <div class="sheet-actions">
+        <button type="button" data-close class="btn btn-ghost">Cancel</button>
+        <button value="ok" id="pick-tracks-ok" class="btn btn-primary">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="sheet">
+    <form method="dialog">
+      <h3 id="confirm-title">Are you sure?</h3>
+      <p id="confirm-text" class="muted"></p>
+      <div class="sheet-actions">
+        <button type="button" data-close class="btn btn-ghost">Cancel</button>
+        <button value="ok" class="btn btn-primary btn-danger-solid">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="notice" class="toast notice" role="status" hidden></div>
 
   <div id="update-toast" class="toast" hidden>
     A new version is available.

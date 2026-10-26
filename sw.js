@@ -1,6 +1,6 @@
 // MusicDeck service worker
 // Bump CACHE_VERSION whenever you change any file in APP_SHELL.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = `musicdeck-shell-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -16,10 +16,27 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
+  './icons/ui/music.svg',
+  './icons/ui/playlist.svg',
+  './icons/ui/player-play.svg',
+  './icons/ui/player-pause.svg',
+  './icons/ui/player-track-next.svg',
+  './icons/ui/player-track-prev.svg',
+  './icons/ui/repeat.svg',
+  './icons/ui/repeat-once.svg',
+  './icons/ui/repeat-off.svg',
+  './icons/ui/sort-descending.svg',
+  './icons/ui/arrows-shuffle.svg',
 ];
 
+// cache: 'reload' skips the browser's HTTP cache, so a new version never gets stored
+// alongside a stale copy of a file (which mixes old and new code).
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: 'reload' })))
+    )
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -39,21 +56,25 @@ self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// Cache-first for the app shell; network fallback for anything else.
+// Network-first for app files: online you always get the current files (checked against the
+// server, not the HTTP cache), and the cached copy is refreshed. Offline, the cache is used.
 // Audio lives in IndexedDB and is played from blob: URLs, so it never hits this handler.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-
-  // Navigations: serve the cached shell so the app opens offline.
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
-  );
+  event.respondWith(networkFirst(request));
 });
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request, { cache: 'no-cache' });
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch {
+    const cached = await cache.match(request, { ignoreSearch: true });
+    if (cached) return cached;
+    if (request.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
+    return Response.error();
+  }
+}
