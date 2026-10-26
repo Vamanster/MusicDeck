@@ -28,7 +28,9 @@
       <button id="install-btn" class="btn btn-ghost" hidden>Install</button>
       <label class="btn btn-primary">
         Add music
-        <input id="file-input" type="file" accept="audio/*" multiple hidden>
+        <!-- iOS Safari ignores the audio/* wildcard and greys out every file, so list types explicitly -->
+        <input id="file-input" type="file" multiple hidden
+          accept=".mp3,.m4a,.aac,.wav,.aif,.aiff,.flac,.ogg,.oga,.opus,.webm,audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/aiff,audio/x-aiff,audio/flac,audio/ogg,audio/opus,audio/webm">
       </label>
     </div>
   </header>

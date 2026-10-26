@@ -1,6 +1,6 @@
 // MusicDeck service worker
 // Bump CACHE_VERSION whenever you change any file in APP_SHELL.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `musicdeck-shell-${CACHE_VERSION}`;
 
 const APP_SHELL = [

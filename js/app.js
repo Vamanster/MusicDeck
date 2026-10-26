@@ -55,7 +55,7 @@ async function refreshLibrary() {
 }
 
 async function importFiles(files) {
-  const audio = [...files].filter((f) => f.type.startsWith('audio/') || /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)$/i.test(f.name));
+  const audio = [...files].filter((f) => f.type.startsWith('audio/') || /\.(mp3|m4a|aac|ogg|oga|opus|wav|aif|aiff|flac|webm)$/i.test(f.name));
   for (const file of audio) await addTrack(file);
   if (audio.length) {
     requestPersistentStorage();
