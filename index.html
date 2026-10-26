@@ -84,6 +84,7 @@
         <span id="np-source" class="np-source" hidden></span>
       </div>
       <div class="controls">
+        <button id="shuffle-btn" class="icon-btn" aria-label="Shuffle: off" aria-pressed="false"><span class="icon i-arrows-shuffle"></span></button>
         <button id="prev-btn" class="icon-btn" aria-label="Previous"><span class="icon i-player-track-prev"></span></button>
         <button id="play-btn" class="icon-btn icon-btn-lg" aria-label="Play"><span class="icon i-player-play"></span></button>
         <button id="next-btn" class="icon-btn" aria-label="Next"><span class="icon i-player-track-next"></span></button>
@@ -137,6 +138,21 @@
       <div class="sheet-actions">
         <button type="button" data-close class="btn btn-ghost">Cancel</button>
         <button value="ok" class="btn btn-primary btn-danger-solid">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="ios-install-dialog" class="sheet">
+    <form method="dialog">
+      <h3>Install MusicDeck</h3>
+      <p class="muted">Add it to your Home Screen to use it like an app — full screen, and your music stays on this device.</p>
+      <ol class="install-steps">
+        <li><span class="step-icon"><span class="icon i-dots-vertical" aria-hidden="true"></span></span><span>Tap the <strong>menu</strong> button in Safari’s toolbar</span></li>
+        <li><span class="step-icon"><span class="icon i-share" aria-hidden="true"></span></span><span>Tap <strong>Share</strong></span></li>
+        <li><span class="step-icon"><span class="icon i-square-plus" aria-hidden="true"></span></span><span>Tap <strong>Add to Home Screen</strong>, then <strong>Add</strong></span></li>
+      </ol>
+      <div class="sheet-actions">
+        <button type="button" data-close class="btn btn-primary">Got it</button>
       </div>
     </form>
   </dialog>

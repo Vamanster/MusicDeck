@@ -1,7 +1,7 @@
 // Audio playback: queue, play order (in order / shuffle), loop, and OS media controls (Media Session).
 //
 // A queue always has a *source*:
-//   { type: 'library' }               — All music. Uses loop: off | all | one.
+//   { type: 'library' }               — All music. Uses loop: off | all | one, plus shuffle.
 //   { type: 'playlist', id }          — a playlist. Uses order: in order | shuffle; stops after the last track.
 //   { type: 'detached' }              — the playlist it came from was deleted; behaves like library.
 import { getTrack } from './db.js';
@@ -26,7 +26,7 @@ export class Player extends EventTarget {
     this.currentTrack = null;
     this.source = null;
     this.loop = 'off';        // library: 'off' | 'all' | 'one'
-    this.shuffle = false;     // playlists: false = in order, true = shuffle
+    this.shuffleBy = { library: false, playlist: false }; // shuffle is remembered separately for each
     this.objectUrl = null;
 
     this.audio.addEventListener('ended', () => this.next({ auto: true }));
@@ -44,7 +44,9 @@ export class Player extends EventTarget {
   get mode() { return this.source?.type === 'playlist' ? 'playlist' : 'library'; }
   isSource(playlistId) { return this.source?.type === 'playlist' && this.source.id === playlistId; }
 
-  get #shuffleActive() { return this.mode === 'playlist' && this.shuffle; }
+  /** Shuffle setting for the current mode (or a given one). */
+  isShuffled(mode = this.mode) { return this.shuffleBy[mode]; }
+  get #shuffleActive() { return this.shuffleBy[this.mode]; }
 
   // ---- Queue ----
 
@@ -130,7 +132,15 @@ export class Player extends EventTarget {
   next({ auto = false } = {}) {
     if (!this.queue.length) return;
     if (this.pos + 1 < this.order.length) return this.#playPos(this.pos + 1);
-    if (this.mode === 'library' && this.loop === 'all') return this.#playPos(0);
+    if (this.mode === 'library' && this.loop === 'all') {
+      // Looping a shuffled library: reshuffle for the next pass, without repeating the track that just played.
+      if (this.#shuffleActive && this.order.length > 1) {
+        const last = this.order[this.pos];
+        this.order = shuffled(this.order);
+        if (this.order[0] === last) [this.order[0], this.order[1]] = [this.order[1], this.order[0]];
+      }
+      return this.#playPos(0);
+    }
     // End of the queue: when a track finishes on its own, rewind to the top, paused.
     if (auto) {
       this.audio.currentTime = 0;
@@ -158,15 +168,16 @@ export class Player extends EventTarget {
     return this.loop;
   }
 
-  toggleShuffle() {
-    this.shuffle = !this.shuffle;
-    if (this.mode === 'playlist' && this.queue.length) {
+  /** Toggle shuffle for a mode ('library' or 'playlist'); reorders the live queue if it's that mode. */
+  toggleShuffle(mode = this.mode) {
+    this.shuffleBy[mode] = !this.shuffleBy[mode];
+    if (mode === this.mode && this.queue.length) {
       const i = this.currentTrack ? this.queue.findIndex((t) => t.id === this.currentTrack.id) : -1;
       this.#buildOrder(i >= 0 ? i : null);
       if (i < 0) this.pos = -1;
     }
     this.#emit('modechange');
-    return this.shuffle;
+    return this.shuffleBy[mode];
   }
 
   #emit(type) {

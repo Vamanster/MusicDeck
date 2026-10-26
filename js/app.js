@@ -33,6 +33,8 @@ const els = {
   prev: $('#prev-btn'),
   next: $('#next-btn'),
   mode: $('#mode-btn'),
+  shuffle: $('#shuffle-btn'),
+  iosInstall: $('#ios-install-dialog'),
   seek: $('#seek'),
   // misc
   install: $('#install-btn'),
@@ -267,11 +269,22 @@ function syncUI() {
   els.source.hidden = !els.source.textContent;
 
   // Loop (All music) or play order (playlists)
-  const key = controlMode() === 'playlist' ? (player.shuffle ? 'shuffle' : 'order') : `loop-${player.loop}`;
+  const mode = controlMode();
+  const key = mode === 'playlist' ? (player.isShuffled('playlist') ? 'shuffle' : 'order') : `loop-${player.loop}`;
   const [name, label] = MODE_UI[key];
   setButtonIcon(els.mode, name, label);
   els.mode.dataset.mode = key;
   els.mode.classList.toggle('is-active', ['shuffle', 'loop-all', 'loop-one'].includes(key));
+
+  // All music has its own shuffle button; playlists use the order toggle above instead.
+  // The slot stays reserved (just hidden) so the controls don't shift between modes.
+  const libShuffle = player.isShuffled('library');
+  els.shuffle.classList.toggle('is-placeholder', mode !== 'library');
+  els.shuffle.classList.toggle('is-active', libShuffle);
+  els.shuffle.setAttribute('aria-pressed', String(libShuffle));
+  els.shuffle.setAttribute('aria-label', libShuffle ? 'Shuffle: on' : 'Shuffle: off');
+  els.shuffle.title = libShuffle ? 'Shuffle: on' : 'Shuffle: off';
+  els.shuffle.tabIndex = mode === 'library' ? 0 : -1;
 
   // Track rows: a playlist's rows only light up when that playlist is the one playing
   const id = current?.id;
@@ -511,9 +524,10 @@ els.play.addEventListener('click', playPause);
 els.prev.addEventListener('click', () => player.prev());
 els.next.addEventListener('click', () => player.next());
 els.mode.addEventListener('click', () => {
-  if (controlMode() === 'playlist') player.toggleShuffle();
+  if (controlMode() === 'playlist') player.toggleShuffle('playlist');
   else player.cycleLoop();
 });
+els.shuffle.addEventListener('click', () => player.toggleShuffle('library'));
 els.seek.addEventListener('input', () => {
   const d = player.audio.duration;
   if (d) player.seek((els.seek.value / 100) * d);
@@ -537,6 +551,13 @@ window.addEventListener('keydown', (e) => {
 
 // ---------- PWA: install prompt ----------
 
+// iOS has no install prompt: Install opens a short "Add to Home Screen" guide instead.
+// (iPadOS reports itself as a Mac, so also check for a touch screen.)
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+if (isIOS && !isStandalone) els.install.hidden = false;
+
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -544,6 +565,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   els.install.hidden = false;
 });
 els.install.addEventListener('click', async () => {
+  if (isIOS) return openDialog(els.iosInstall);
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
   await deferredPrompt.userChoice;

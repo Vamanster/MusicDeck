@@ -46,10 +46,12 @@ When you change any file listed in `APP_SHELL` inside `sw.js`, bump `CACHE_VERSI
 - Add audio by file picker, drag-and-drop, or "Open with" (Chromium desktop, when installed)
 - Library persisted in IndexedDB, with persistent-storage request
 - Play / pause, previous / next, seek
-- Context-aware mode button: loop off / all / one when playing All music; in order / shuffle when playing a playlist (playlists stop after the last track)
+- All music: shuffle button plus loop off / all / one (loop all reshuffles each pass)
+- Playlists: in order / shuffle toggle in place of loop (playlists stop after the last track); shuffle is remembered separately for All music and playlists
 - Playing playlist is highlighted with a pause button on the Playlists page; the player shows where the track is playing from
 - All music / Playlists tabs above the player
 - Playlists: create, rename, delete, add tracks (from a track's playlist button or "Add tracks" in a playlist), remove tracks, play
+- iOS: the Install button opens a short Add to Home Screen guide (iOS has no install prompt)
 - Lock-screen and media-key controls via the Media Session API
 - Works offline after first load
 
