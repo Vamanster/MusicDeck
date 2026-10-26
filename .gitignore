@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Dependencies / tooling (if added later)
+node_modules/
+npm-debug.log*
+
+# Local certs for HTTPS dev servers
+*.pem
+*.key
+
+# Test audio you don't want committed
+/samples/

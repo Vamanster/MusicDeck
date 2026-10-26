@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MusicDeck</title>
+  <meta name="description" content="A local-first music player. Your audio files stay on your device.">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14161c">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+
+  <!-- iOS -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MusicDeck">
+
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand">MusicDeck</h1>
+    <div class="topbar-actions">
+      <button id="install-btn" class="btn btn-ghost" hidden>Install</button>
+      <label class="btn btn-primary">
+        Add music
+        <input id="file-input" type="file" accept="audio/*" multiple hidden>
+      </label>
+    </div>
+  </header>
+
+  <main class="content">
+    <section aria-labelledby="library-heading">
+      <h2 id="library-heading" class="section-title">Library</h2>
+      <p id="empty-state" class="empty">No tracks yet. Add some audio files to get started — they're stored only on this device.</p>
+      <ul id="track-list" class="track-list"></ul>
+    </section>
+  </main>
+
+  <footer class="player" aria-label="Player">
+    <div class="now-playing">
+      <span id="np-title" class="np-title">Nothing playing</span>
+    </div>
+    <div class="controls">
+      <button id="prev-btn" class="icon-btn" aria-label="Previous">⏮</button>
+      <button id="play-btn" class="icon-btn icon-btn-lg" aria-label="Play">▶</button>
+      <button id="next-btn" class="icon-btn" aria-label="Next">⏭</button>
+      <button id="loop-btn" class="icon-btn" aria-label="Loop" aria-pressed="false">🔁</button>
+    </div>
+    <input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek">
+  </footer>
+
+  <div id="update-toast" class="toast" hidden>
+    A new version is available.
+    <button id="update-btn" class="btn btn-primary">Reload</button>
+  </div>
+</body>
+</html>
