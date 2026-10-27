@@ -1,6 +1,6 @@
 // MusicDeck service worker
 // Bump CACHE_VERSION whenever you change any file in APP_SHELL.
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const CACHE_NAME = `musicdeck-shell-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -30,6 +30,8 @@ const APP_SHELL = [
   './icons/ui/dots-vertical.svg',
   './icons/ui/share.svg',
   './icons/ui/square-plus.svg',
+  './icons/ui/star.svg',
+  './icons/ui/star-filled.svg',
 ];
 
 // cache: 'reload' skips the browser's HTTP cache, so a new version never gets stored

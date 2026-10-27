@@ -53,6 +53,16 @@
       <ul id="playlist-list" class="track-list"></ul>
     </section>
 
+    <!-- Favorites (stored as a hidden playlist) -->
+    <section id="view-favorites" class="view" aria-labelledby="favorites-heading" hidden>
+      <div class="view-header">
+        <h2 id="favorites-heading" class="section-title">Favorites</h2>
+        <button id="fav-play" class="btn btn-primary"><span class="icon i-player-play" aria-hidden="true"></span>Play</button>
+      </div>
+      <p id="favorites-empty" class="empty">No favorites yet. Tap the star next to any track to add it here.</p>
+      <ul id="favorites-list" class="track-list"></ul>
+    </section>
+
     <!-- Single playlist -->
     <section id="view-playlist" class="view" aria-labelledby="pl-name" hidden>
       <button id="back-btn" class="btn btn-ghost btn-back">‹ Playlists</button>
@@ -77,22 +87,34 @@
       <button class="tab" data-view="playlists">
         <span class="icon i-playlist" aria-hidden="true"></span>Playlists
       </button>
+      <button class="tab" data-view="favorites">
+        <span class="icon i-star" aria-hidden="true"></span>Favorites
+      </button>
     </nav>
-    <div class="player-main">
+    <div class="player-main"><div class="player-inner">
       <div class="now-playing">
         <span id="np-title" class="np-title">Nothing playing</span>
         <span id="np-source" class="np-source" hidden></span>
       </div>
       <div class="controls">
+        <!-- Same layout everywhere: play order on the left, repeat on the right. app.js shows the
+             All music pair (shuffle / loop) or the playlist pair (order / repeat). -->
         <button id="shuffle-btn" class="icon-btn" aria-label="Shuffle: off" aria-pressed="false"><span class="icon i-arrows-shuffle"></span></button>
+        <button id="order-btn" class="icon-btn" aria-label="Play order: in order" hidden><span class="icon i-sort-descending"></span></button>
         <button id="prev-btn" class="icon-btn" aria-label="Previous"><span class="icon i-player-track-prev"></span></button>
         <button id="play-btn" class="icon-btn icon-btn-lg" aria-label="Play"><span class="icon i-player-play"></span></button>
         <button id="next-btn" class="icon-btn" aria-label="Next"><span class="icon i-player-track-next"></span></button>
-        <!-- Loop (All music) or play order (playlists); app.js swaps the icon -->
-        <button id="mode-btn" class="icon-btn" aria-label="Loop: off"><span class="icon i-repeat-off"></span></button>
+        <button id="loop-btn" class="icon-btn" aria-label="Loop: off"><span class="icon i-repeat-off"></span></button>
+        <button id="repeat-btn" class="icon-btn" aria-label="Repeat: off" aria-pressed="false" hidden><span class="icon i-repeat-off"></span></button>
       </div>
-      <input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek">
-    </div>
+      <div class="seek-wrap">
+        <div class="time-row">
+          <span id="time-current" class="time" aria-label="Elapsed">0:00</span>
+          <span id="time-total" class="time" aria-label="Duration">0:00</span>
+        </div>
+        <input id="seek" class="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek">
+      </div>
+    </div></div>
   </footer>
 
   <!-- Dialogs -->

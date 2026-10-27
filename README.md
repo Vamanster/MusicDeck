@@ -45,14 +45,16 @@ When you change any file listed in `APP_SHELL` inside `sw.js`, bump `CACHE_VERSI
 
 - Add audio by file picker, drag-and-drop, or "Open with" (Chromium desktop, when installed)
 - Library persisted in IndexedDB, with persistent-storage request
-- Play / pause, previous / next, seek
+- Play / pause, previous / next, seek, with elapsed / total time above the scrubber (m:ss); dragging the scrubber seeks a few times a second at lower volume instead of screeching
+- Track lengths shown on the right of each track; measured once at import (older tracks are measured in the background)
 - All music: shuffle button plus loop off / all / one (loop all reshuffles each pass)
-- Playlists: in order / shuffle toggle in place of loop (playlists stop after the last track); shuffle is remembered separately for All music and playlists
+- Controls use the same layout everywhere: play order on the left, repeat on the right. Playlists: in order / shuffle + repeat on/off (off by default). Favorites has its own settings: in order / shuffle / one track + repeat (on by default) — in one-track mode repeat loops the current track, and with repeat off playback stops after it. Pressing Play after a playlist finishes starts it again from the top
 - Playing playlist is highlighted with a pause button on the Playlists page; the player shows where the track is playing from
-- All music / Playlists tabs above the player
+- All music / Playlists / Favorites tabs above the player; player controls are centred at every screen size
+- Favorites: tap the star on any track; stored as a hidden playlist (not listed under Playlists), newest first, repeats by default (reshuffling each pass)
 - Playlists: create, rename, delete, add tracks (from a track's playlist button or "Add tracks" in a playlist), remove tracks, play
 - iOS: the Install button opens a short Add to Home Screen guide (iOS has no install prompt)
 - Lock-screen and media-key controls via the Media Session API
 - Works offline after first load
 
-Planned: shuffle, reordering playlist tracks, metadata (ID3 tags/artwork), search.
+Planned: reordering playlist tracks, metadata (ID3 tags/artwork), search.

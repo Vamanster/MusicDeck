@@ -7,7 +7,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   fileInput: $('#file-input'),
   // views
-  views: { library: $('#view-library'), playlists: $('#view-playlists'), playlist: $('#view-playlist') },
+  views: { library: $('#view-library'), playlists: $('#view-playlists'), playlist: $('#view-playlist'), favorites: $('#view-favorites') },
   tabs: document.querySelectorAll('.tab'),
   // library
   trackList: $('#track-list'),
@@ -23,6 +23,10 @@ const els = {
   plTracks: $('#pl-tracks'),
   plEmpty: $('#pl-empty'),
   plPlay: $('#pl-play'),
+  // favorites
+  favList: $('#favorites-list'),
+  favEmpty: $('#favorites-empty'),
+  favPlay: $('#fav-play'),
   plAdd: $('#pl-add'),
   plRename: $('#pl-rename'),
   plDelete: $('#pl-delete'),
@@ -32,10 +36,14 @@ const els = {
   play: $('#play-btn'),
   prev: $('#prev-btn'),
   next: $('#next-btn'),
-  mode: $('#mode-btn'),
+  loop: $('#loop-btn'),
+  order: $('#order-btn'),
   shuffle: $('#shuffle-btn'),
+  repeat: $('#repeat-btn'),
   iosInstall: $('#ios-install-dialog'),
   seek: $('#seek'),
+  timeCurrent: $('#time-current'),
+  timeTotal: $('#time-total'),
   // misc
   install: $('#install-btn'),
   toast: $('#update-toast'),
@@ -46,6 +54,7 @@ const els = {
 const player = new Player();
 const state = {
   loaded: false,
+  favorites: { id: db.FAVORITES_ID, name: 'Favorites', trackIds: [] },
   tracks: [],
   playlists: [],
   view: 'library',
@@ -79,6 +88,16 @@ function textButton(text, label, onClick, extraClass = '') {
   btn.textContent = text;
   btn.addEventListener('click', onClick);
   return btn;
+}
+
+/** 356 → "5:56", 3725 → "1:02:05"; unknown → "-:--". */
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '-:--';
+  const s = Math.floor(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -148,11 +167,49 @@ function trackRow(track, context, onPlay, actions) {
 
   const btn = document.createElement('button');
   btn.className = 'track-play';
-  btn.textContent = track.title;
+  const time = document.createElement('span');
+  time.className = 'track-time';
+  time.textContent = formatTime(track.duration);
+  const title = document.createElement('span');
+  title.className = 'track-title';
+  title.textContent = track.title;
+  btn.append(title, time); // length sits on the right, just left of the row's icons
   btn.addEventListener('click', onPlay);
 
   li.append(btn, ...actions);
   return li;
+}
+
+/** Star button: fills in when the track is a favorite. */
+function favButton(t) {
+  const isFav = state.favorites.trackIds.includes(t.id);
+  const btn = iconButton(
+    isFav ? 'star-filled' : 'star',
+    isFav ? `Remove ${t.title} from Favorites` : `Add ${t.title} to Favorites`,
+    () => toggleFavoriteFlow(t),
+    `track-action fav-btn${isFav ? ' is-fav' : ''}`
+  );
+  btn.setAttribute('aria-pressed', String(isFav));
+  return btn;
+}
+
+async function toggleFavoriteFlow(t) {
+  const nowFav = await db.toggleFavorite(t.id);
+  await refresh();
+  notify(nowFav ? 'Added to Favorites' : 'Removed from Favorites');
+}
+
+/** Favorites is a playlist under the hood, but lives outside state.playlists. */
+const findPlaylist = (id) => (id === db.FAVORITES_ID ? state.favorites : state.playlists.find((p) => p.id === id));
+
+function renderFavorites() {
+  const fav = state.favorites;
+  const tracks = playlistTracks(fav);
+  els.favEmpty.hidden = tracks.length > 0;
+  els.favPlay.disabled = tracks.length === 0;
+  els.favList.replaceChildren(
+    ...tracks.map((t, i) => trackRow(t, fav.id, () => player.setQueue(tracks, i, playlistSource(fav)), [favButton(t)]))
+  );
 }
 
 function renderLibrary() {
@@ -161,6 +218,7 @@ function renderLibrary() {
   els.trackList.replaceChildren(
     ...tracks.map((t, i) =>
       trackRow(t, 'library', () => player.setQueue(tracks, i, LIBRARY), [
+        favButton(t),
         iconButton('playlist', `Add ${t.title} to a playlist`, () => addTrackToPlaylistFlow(t), 'track-action'),
         textButton('✕', `Remove ${t.title} from device`, () => deleteTrackFlow(t), 'track-action'),
       ])
@@ -209,6 +267,7 @@ function renderPlaylistDetail() {
   els.plTracks.replaceChildren(
     ...tracks.map((t, i) =>
       trackRow(t, pl.id, () => player.setQueue(tracks, i, playlistSource(pl)), [
+        favButton(t),
         textButton('✕', `Remove ${t.title} from ${pl.name}`, async () => {
           await db.removeFromPlaylist(pl.id, t.id);
           refresh();
@@ -219,14 +278,35 @@ function renderPlaylistDetail() {
 }
 
 async function refresh() {
-  [state.tracks, state.playlists] = await Promise.all([db.listTracks(), db.listPlaylists()]);
+  [state.tracks, state.playlists, state.favorites] = await Promise.all([db.listTracks(), db.listPlaylists(), db.getFavorites()]);
   state.loaded = true;
   els.libraryEmpty.textContent = EMPTY_LIBRARY_TEXT;
   syncQueue();
   renderLibrary();
   renderPlaylists();
   renderPlaylistDetail();
+  renderFavorites();
   syncUI();
+  backfillDurations();
+}
+
+/** Tracks added before durations were recorded: measure them once, in the background. */
+let backfilling = false;
+async function backfillDurations() {
+  if (backfilling) return;
+  backfilling = true;
+  try {
+    for (const t of state.tracks.filter((x) => x.duration === undefined)) {
+      const duration = await db.backfillDuration(t.id);
+      t.duration = duration;
+      document.querySelectorAll(`.track[data-track-id="${CSS.escape(t.id)}"] .track-time`)
+        .forEach((el) => { el.textContent = formatTime(duration); });
+    }
+  } catch (err) {
+    console.warn('MusicDeck: measuring track lengths failed', err);
+  } finally {
+    backfilling = false;
+  }
 }
 
 /** Keep the player's queue in step with library/playlist edits, without interrupting playback. */
@@ -235,7 +315,7 @@ function syncQueue() {
   if (!src) return;
   if (src.type === 'library') return player.replaceQueue(state.tracks);
   if (src.type === 'playlist') {
-    const pl = state.playlists.find((p) => p.id === src.id);
+    const pl = findPlaylist(src.id);
     if (!pl) return player.detach();
     src.name = pl.name;
     player.replaceQueue(playlistTracks(pl));
@@ -244,18 +324,27 @@ function syncQueue() {
 
 // ---------- State reflection ----------
 
-/** Which control set the mode button shows: what's playing wins, otherwise the tab you're on. */
+/** Which repeat setting the toggle shows: the playing playlist's, otherwise the screen you're on. */
+function repeatKeyForUI() {
+  if (player.current && player.mode === 'playlist') return player.repeatKey();
+  return state.view === 'favorites' ? 'favorites' : 'playlist';
+}
+
+/** Which control pair to show — All music's or the playlist one: what's playing wins, otherwise the tab you're on. */
 function controlMode() {
   if (player.current) return player.mode;
   return state.view === 'library' ? 'library' : 'playlist';
 }
 
-const MODE_UI = {
-  'loop-off': ['repeat-off', 'Loop: off'],
-  'loop-all': ['repeat', 'Loop: all'],
-  'loop-one': ['repeat-once', 'Loop: one'],
-  order: ['sort-descending', 'Play order: in order (tap for shuffle)'],
-  shuffle: ['arrows-shuffle', 'Play order: shuffle (tap for in order)'],
+const LOOP_UI = {
+  off: ['repeat-off', 'Loop: off'],
+  all: ['repeat', 'Loop: all'],
+  one: ['repeat-once', 'Loop: one'],
+};
+const ORDER_UI = {
+  order: ['sort-descending', 'Play order: in order'],
+  shuffle: ['arrows-shuffle', 'Play order: shuffle'],
+  one: ['repeat-once', 'Play order: one track'],
 };
 
 function syncUI() {
@@ -268,23 +357,43 @@ function syncUI() {
   els.source.textContent = current && player.source?.type !== 'detached' ? player.source?.name ?? '' : '';
   els.source.hidden = !els.source.textContent;
 
-  // Loop (All music) or play order (playlists)
+  // Same layout on every screen: play order on the left, repeat on the right.
+  //   All music:            shuffle on/off  |  loop off / all / one
+  //   Playlists, Favorites: order button    |  repeat on/off
   const mode = controlMode();
-  const key = mode === 'playlist' ? (player.isShuffled('playlist') ? 'shuffle' : 'order') : `loop-${player.loop}`;
-  const [name, label] = MODE_UI[key];
-  setButtonIcon(els.mode, name, label);
-  els.mode.dataset.mode = key;
-  els.mode.classList.toggle('is-active', ['shuffle', 'loop-all', 'loop-one'].includes(key));
+  const isLib = mode === 'library';
+  els.shuffle.hidden = !isLib;
+  els.loop.hidden = !isLib;
+  els.order.hidden = isLib;
+  els.repeat.hidden = isLib;
 
-  // All music has its own shuffle button; playlists use the order toggle above instead.
-  // The slot stays reserved (just hidden) so the controls don't shift between modes.
-  const libShuffle = player.isShuffled('library');
-  els.shuffle.classList.toggle('is-placeholder', mode !== 'library');
+  const libShuffle = player.isLibraryShuffled();
+  const shuffleLabel = libShuffle ? 'Shuffle: on' : 'Shuffle: off';
   els.shuffle.classList.toggle('is-active', libShuffle);
   els.shuffle.setAttribute('aria-pressed', String(libShuffle));
-  els.shuffle.setAttribute('aria-label', libShuffle ? 'Shuffle: on' : 'Shuffle: off');
-  els.shuffle.title = libShuffle ? 'Shuffle: on' : 'Shuffle: off';
-  els.shuffle.tabIndex = mode === 'library' ? 0 : -1;
+  els.shuffle.setAttribute('aria-label', shuffleLabel);
+  els.shuffle.title = shuffleLabel;
+
+  const [loopIcon, loopLabel] = LOOP_UI[player.loop];
+  setButtonIcon(els.loop, loopIcon, loopLabel);
+  els.loop.title = loopLabel;
+  els.loop.classList.toggle('is-active', player.loop !== 'off');
+
+  const key = repeatKeyForUI();
+  const order = player.orderOf(key);
+  const [orderIcon, orderLabel] = ORDER_UI[order];
+  setButtonIcon(els.order, orderIcon, orderLabel);
+  els.order.title = orderLabel;
+  els.order.dataset.order = order;
+  els.order.classList.toggle('is-active', order !== 'order');
+
+  const repeating = player.isRepeating(key);
+  const what = order === 'one' ? 'track' : key === 'favorites' ? 'Favorites' : 'playlist';
+  const repeatLabel = `Repeat ${what}: ${repeating ? 'on' : 'off'}`;
+  setButtonIcon(els.repeat, repeating ? 'repeat' : 'repeat-off', repeatLabel);
+  els.repeat.title = repeatLabel;
+  els.repeat.classList.toggle('is-active', repeating);
+  els.repeat.setAttribute('aria-pressed', String(repeating));
 
   // Track rows: a playlist's rows only light up when that playlist is the one playing
   const id = current?.id;
@@ -303,13 +412,15 @@ function syncUI() {
     setButtonIcon(li.querySelector('.pl-row-play'), showPause ? 'player-pause' : 'player-play', `${showPause ? 'Pause' : 'Play'} ${name}`);
   });
 
-  // Playlist page Play button: Play → Pause → Resume
-  const openIsSrc = !!current && player.isSource(state.openPlaylistId);
-  const detailPlaying = openIsSrc && playing;
-  els.plPlay.replaceChildren(
-    icon(detailPlaying ? 'player-pause' : 'player-play'),
-    detailPlaying ? 'Pause' : openIsSrc ? 'Resume' : 'Play'
-  );
+  // Playlist page and Favorites Play buttons: Play → Pause → Resume
+  setPlayButton(els.plPlay, state.openPlaylistId);
+  setPlayButton(els.favPlay, db.FAVORITES_ID);
+}
+
+function setPlayButton(btn, playlistId) {
+  const isSrc = !!player.current && player.isSource(playlistId);
+  const isPlaying = isSrc && player.playing;
+  btn.replaceChildren(icon(isPlaying ? 'player-pause' : 'player-play'), isPlaying ? 'Pause' : isSrc ? 'Resume' : 'Play');
 }
 
 // ---------- Views / tabs ----------
@@ -317,7 +428,7 @@ function syncUI() {
 function showView(view) {
   state.view = view;
   for (const [name, section] of Object.entries(els.views)) section.hidden = name !== view;
-  const tab = view === 'library' ? 'library' : 'playlists';
+  const tab = view === 'playlist' ? 'playlists' : view; // a single playlist lives under the Playlists tab
   els.tabs.forEach((t) => {
     if (t.dataset.view === tab) t.setAttribute('aria-current', 'page');
     else t.removeAttribute('aria-current');
@@ -440,6 +551,7 @@ async function addTracksToOpenPlaylist() {
 }
 
 els.plAdd.addEventListener('click', addTracksToOpenPlaylist);
+els.favPlay.addEventListener('click', () => togglePlaylist(state.favorites));
 els.plPlay.addEventListener('click', () => {
   const pl = state.playlists.find((p) => p.id === state.openPlaylistId);
   if (pl) togglePlaylist(pl);
@@ -517,28 +629,91 @@ function playPause() {
     const pl = state.playlists.find((p) => p.id === state.openPlaylistId);
     if (pl) return playPlaylist(pl);
   }
+  if (state.view === 'favorites' && state.favorites.trackIds.length) return playPlaylist(state.favorites);
   if (state.tracks.length) player.setQueue(state.tracks, 0, LIBRARY);
 }
 
 els.play.addEventListener('click', playPause);
 els.prev.addEventListener('click', () => player.prev());
 els.next.addEventListener('click', () => player.next());
-els.mode.addEventListener('click', () => {
-  if (controlMode() === 'playlist') player.toggleShuffle('playlist');
-  else player.cycleLoop();
-});
-els.shuffle.addEventListener('click', () => player.toggleShuffle('library'));
-els.seek.addEventListener('input', () => {
-  const d = player.audio.duration;
-  if (d) player.seek((els.seek.value / 100) * d);
-});
+els.shuffle.addEventListener('click', () => player.toggleLibraryShuffle());
+els.loop.addEventListener('click', () => player.cycleLoop());
+els.order.addEventListener('click', () => player.cycleOrder(repeatKeyForUI()));
+els.repeat.addEventListener('click', () => player.toggleRepeat(repeatKeyForUI()));
 
 for (const type of ['play', 'pause', 'trackchange', 'sourcechange', 'modechange']) {
   player.addEventListener(type, syncUI);
 }
-player.addEventListener('timeupdate', () => {
+function syncTime() {
   const { currentTime, duration } = player.audio;
-  if (duration) els.seek.value = (currentTime / duration) * 100;
+  const known = Number.isFinite(duration) && duration > 0;
+  if (!player.current) {
+    els.seek.value = 0;
+    els.timeCurrent.textContent = '0:00';
+    els.timeTotal.textContent = '0:00';
+    return;
+  }
+  if (scrub.active) return; // the user's finger owns the scrubber and the elapsed time while dragging
+  if (known) els.seek.value = (currentTime / duration) * 100;
+  els.timeCurrent.textContent = formatTime(currentTime);
+  els.timeTotal.textContent = formatTime(known ? duration : player.current.duration);
+}
+for (const type of ['timeupdate', 'loadedmetadata', 'durationchange', 'trackchange']) {
+  player.addEventListener(type, syncTime);
+}
+// ---------- Scrubbing ----------
+// Seeking on every pixel of a drag makes the audio stutter and screech. While dragging we:
+//  - jump to the new position at most every SCRUB_SEEK_MS (using fastSeek where available),
+//  - turn the volume down to SCRUB_VOLUME so you still hear roughly where you are,
+// then make one exact seek and restore the volume when the scrubber is released.
+// (iOS doesn't let web pages change the volume, so there only the fewer jumps apply.)
+const SCRUB_SEEK_MS = 250;
+const SCRUB_VOLUME = 0.25;
+const scrub = { active: false, volume: 1, lastSeek: 0, timer: null, trackId: null };
+
+const scrubTarget = () => {
+  const d = player.audio.duration;
+  return Number.isFinite(d) ? (els.seek.value / 100) * d : null;
+};
+
+function scrubSeek(exact) {
+  // If the track changed mid-drag (e.g. it ended), don't drag the new track to this position.
+  if (player.current?.id !== scrub.trackId) return;
+  let t = scrubTarget();
+  if (t == null) return;
+  const a = player.audio;
+  // While dragging, stop just short of the end so the track doesn't finish under your finger;
+  // releasing at the very end still lets it finish and move on.
+  if (!exact) t = Math.min(t, Math.max(0, a.duration - 0.5));
+  if (!exact && typeof a.fastSeek === 'function') a.fastSeek(t);
+  else player.seek(t);
+  scrub.lastSeek = performance.now();
+}
+
+els.seek.addEventListener('input', () => {
+  if (!player.current) return;
+  if (!scrub.active) {
+    scrub.active = true;
+    scrub.trackId = player.current.id;
+    scrub.volume = player.audio.volume;
+    player.audio.volume = Math.min(scrub.volume, SCRUB_VOLUME);
+  }
+  const t = scrubTarget();
+  if (t != null) els.timeCurrent.textContent = formatTime(t);
+
+  clearTimeout(scrub.timer);
+  const wait = SCRUB_SEEK_MS - (performance.now() - scrub.lastSeek);
+  if (wait <= 0) scrubSeek(false);
+  else scrub.timer = setTimeout(() => scrubSeek(false), wait); // trailing jump so a pause in the drag still lands
+});
+
+// 'change' fires on release (mouse, touch, or a keyboard step).
+els.seek.addEventListener('change', () => {
+  clearTimeout(scrub.timer);
+  scrubSeek(true);
+  if (scrub.active) player.audio.volume = scrub.volume;
+  scrub.active = false;
+  syncTime();
 });
 
 // Keyboard: space toggles play when not typing or inside a dialog
